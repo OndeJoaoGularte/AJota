@@ -33,4 +33,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+    public function categories()
+    {
+        return $this->hasMany(Category::class);
+    }
+    public function creditCards()
+    {
+        return $this->hasMany(CreditCard::class);
+    }
 }

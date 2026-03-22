@@ -6,13 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-    /**
-    * Proteção contra Mass Assignment (Atribuição em Massa).
-    * O Laravel bloqueia salvar dados enviados de formulários por segurança.
-    * Ao preencher o $fillable, dizemos explicitamente quais colunas 
-    * permitimos que sejam preenchidas de uma só vez usando o comando create().
-    **/
-    protected $fillable = ['description', 'amount', 'type', 'date'];
-}
+    protected $fillable = [
+        'description', 'amount', 'type', 'date', 'category_id', 
+        'credit_card_id', 'installment_number', 'total_installments'
+    ];
 
-?>
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function creditCard()
+    {
+        return $this->belongsTo(CreditCard::class);
+    }
+}

@@ -9,17 +9,13 @@ use Carbon\Carbon;
 class CreditCardInvoice extends Component
 {
     public $selectedCardId = null;
-    public $selectedMonths = []; // Vai guardar as faturas selecionadas
+    public $selectedMonths = []; 
 
     public function mount()
     {
-        // Marca o mês atual por padrão
         $this->selectedMonths = [now()->format('Y-m')];
-
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
-        // Se já tiver cartão, seleciona o primeiro
         $firstCard = $user->creditCards()->first();
         if ($firstCard) {
             $this->selectedCardId = $firstCard->id;
@@ -31,7 +27,6 @@ class CreditCardInvoice extends Component
         $this->selectedCardId = $id;
     }
 
-    // --- FUNÇÃO AUXILIAR PARA FILTRAR OS MESES ---
     private function applyMonthFilter($query)
     {
         if (empty($this->selectedMonths)) {
@@ -60,11 +55,14 @@ class CreditCardInvoice extends Component
         $totalInvoice = 0;
         $availableMonths = [];
 
+        // Novas variáveis para a barra de progresso
+        $limitPercentage = 0;
+        $metaPercentage = 0;
+
         if ($this->selectedCardId) {
             $selectedCard = $user->creditCards()->find($this->selectedCardId);
             
             if ($selectedCard) {
-                // --- GERA A LISTA DE MESES BASEADO NOS GASTOS DESTE CARTÃO ---
                 $dates = $user->transactions()
                     ->where('credit_card_id', $this->selectedCardId)
                     ->select('date')
@@ -81,9 +79,8 @@ class CreditCardInvoice extends Component
                     [$year, $month] = explode('-', $d);
                     $availableMonths[$d] = $mesesNomes[(int)$month] . '/' . substr($year, -2);
                 }
-                ksort($availableMonths); // Ordena para a tela
+                ksort($availableMonths); 
 
-                // --- BUSCA AS TRANSAÇÕES DA FATURA ---
                 $query = $user->transactions()
                     ->where('credit_card_id', $this->selectedCardId)
                     ->where('type', 'expense');
@@ -92,6 +89,17 @@ class CreditCardInvoice extends Component
                 
                 $transactions = $query->orderBy('date', 'desc')->get();
                 $totalInvoice = $transactions->sum('amount');
+
+                // --- MATEMÁTICA DAS BARRAS DE PERIGO ---
+                if ($selectedCard->limit > 0) {
+                    $limitPercentage = ($totalInvoice / $selectedCard->limit) * 100;
+                    if ($limitPercentage > 100) $limitPercentage = 100;
+                }
+
+                if ($selectedCard->max_spend > 0) {
+                    $metaPercentage = ($totalInvoice / $selectedCard->max_spend) * 100;
+                    if ($metaPercentage > 100) $metaPercentage = 100;
+                }
             }
         }
 
@@ -101,6 +109,8 @@ class CreditCardInvoice extends Component
             'transactions' => $transactions,
             'totalInvoice' => $totalInvoice,
             'availableMonths' => $availableMonths,
+            'limitPercentage' => $limitPercentage,
+            'metaPercentage' => $metaPercentage,
         ]);
     }
 }

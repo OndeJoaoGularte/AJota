@@ -8,7 +8,7 @@ class Transaction extends Model
 {
     protected $fillable = [
         'description', 'amount', 'type', 'date', 'category_id', 
-        'credit_card_id', 'installment_number', 'total_installments'
+        'credit_card_id', 'installment_number', 'total_installments', 'is_paid'
     ];
 
     public function category()

@@ -23,15 +23,23 @@ new class extends Component
             <div class="flex">
                 <!-- Logo -->
                 <div class="shrink-0 flex items-center">
-                    <a href="{{ route('dashboard') }}" wire:navigate>
-                        <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
+                    <a href="{{ route('dashboard') }}" class="text-2xl font-black tracking-tighter text-orange-500 hover:text-orange-600 transition">
+                        A<span class="text-gray-800">Gota</span>
                     </a>
                 </div>
 
                 <!-- Navigation Links -->
                 <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex">
-                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" wire:navigate>
+                    <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')" class="hover:text-orange-500 focus:text-orange-500 {{ request()->routeIs('dashboard') ? 'border-orange-500 text-gray-900' : '' }}">
                         {{ __('Dashboard') }}
+                    </x-nav-link>
+                    
+                    <x-nav-link :href="route('categories')" :active="request()->routeIs('categories')" class="hover:text-orange-500 focus:text-orange-500 {{ request()->routeIs('categories') ? 'border-orange-500 text-gray-900' : '' }}">
+                        Categorias
+                    </x-nav-link>
+
+                    <x-nav-link :href="route('investments')" :active="request()->routeIs('investments')" class="hover:text-orange-500 focus:text-orange-500 {{ request()->routeIs('investments') ? 'border-orange-500 text-gray-900' : '' }}">
+                        Investimentos
                     </x-nav-link>
                 </div>
             </div>

@@ -27,5 +27,10 @@ Route::view('investments', 'investments')
     ->middleware(['auth'])
     ->name('investments');
 
+// Rota de Cartões (Protegida)
+Route::view('cards', 'cards')
+    ->middleware(['auth'])
+    ->name('cards');
+
 // Puxa as rotas de login/senha geradas pelo Laravel
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

@@ -9,18 +9,31 @@ use Carbon\Carbon;
 class CreditCardInvoice extends Component
 {
     public $selectedCardId = null;
-    public $selectedMonths = []; 
+    public $selectedMonths = [];
 
-    public $showForm = false; 
+    public $showForm = false;
     public $transactionId = null;
     public $description;
     public $amount;
     public $date;
     public $categoryId = null;
-    
+
     public $isInstallment = false;
-    public $installmentType = 'total_value'; 
+    public $installmentType = 'total_value';
     public $totalInstallments = 2;
+
+    public function handleCardsUpdated()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        
+        $firstCard = $user->creditCards()->first();
+        if ($firstCard && !$user->creditCards()->find($this->selectedCardId)) {
+            $this->selectedCardId = $firstCard->id;
+        } elseif (!$firstCard) {
+            $this->selectedCardId = null;
+        }
+    }
 
     public function mount()
     {
@@ -36,7 +49,7 @@ class CreditCardInvoice extends Component
     public function selectCard($id)
     {
         $this->selectedCardId = $id;
-        $this->resetForm(); 
+        $this->resetForm();
     }
 
     // --- FUNÇÃO DE PAGAR A FATURA ---
@@ -44,21 +57,21 @@ class CreditCardInvoice extends Component
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
+
         // Pega as compras do cartão selecionado, nos meses marcados, que AINDA NÃO FORAM PAGAS
         $query = $user->transactions()
             ->where('credit_card_id', $this->selectedCardId)
             ->where('type', 'expense')
             ->where('is_paid', false);
-            
+
         $this->applyMonthFilter($query);
         $unpaidTransactions = $query->get();
-        
+
         $totalToPay = $unpaidTransactions->sum('amount');
-        
+
         if ($totalToPay > 0) {
             $card = $user->creditCards()->find($this->selectedCardId);
-            
+
             // 1. Cria a despesa consolidada no Caixa Geral (sem credit_card_id)
             $user->transactions()->create([
                 'description' => 'Fatura ' . $card->name,
@@ -66,15 +79,15 @@ class CreditCardInvoice extends Component
                 'type' => 'expense',
                 'date' => now()->format('Y-m-d'), // Data de hoje (pagamento)
                 'is_paid' => true,
-                'credit_card_id' => null, 
-                'category_id' => null, 
+                'credit_card_id' => null,
+                'category_id' => null,
             ]);
-            
+
             // 2. Marca todas as comprinhas individuais do cartão como "Pagas"
-            foreach($unpaidTransactions as $tx) {
+            foreach ($unpaidTransactions as $tx) {
                 $tx->update(['is_paid' => true]);
             }
-            
+
             session()->flash('invoice_msg', '✅ Fatura de R$ ' . number_format($totalToPay, 2, ',', '.') . ' paga com sucesso! O valor consolidado já está no seu extrato principal.');
         }
     }
@@ -84,22 +97,22 @@ class CreditCardInvoice extends Component
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
+
         // Pega as compras do cartão selecionado, nos meses marcados, que JÁ FORAM PAGAS
         $query = $user->transactions()
             ->where('credit_card_id', $this->selectedCardId)
             ->where('type', 'expense')
             ->where('is_paid', true);
-            
+
         $this->applyMonthFilter($query);
         $paidTransactions = $query->get();
-        
+
         if ($paidTransactions->count() > 0) {
             // Reverte todas as compras para "Pendentes"
-            foreach($paidTransactions as $tx) {
+            foreach ($paidTransactions as $tx) {
                 $tx->update(['is_paid' => false]);
             }
-            
+
             session()->flash('invoice_msg', '⏪ Fatura reaberta com sucesso! Lembre-se de ir na aba de Transações e apagar o pagamento consolidado (se houver).');
         }
     }
@@ -134,14 +147,14 @@ class CreditCardInvoice extends Component
             session()->flash('invoice_msg', 'Compra atualizada!');
         } else {
             if ($this->isInstallment) {
-                $baseAmount = $this->installmentType === 'total_value' 
-                    ? ($this->amount / $this->totalInstallments) 
+                $baseAmount = $this->installmentType === 'total_value'
+                    ? ($this->amount / $this->totalInstallments)
                     : $this->amount;
 
                 for ($i = 1; $i <= $this->totalInstallments; $i++) {
                     $monthsToAdd = $i - 1;
                     $installmentDate = Carbon::parse($this->date)->addMonths($monthsToAdd)->format('Y-m-d');
-                    
+
                     $user->transactions()->create([
                         'description' => $this->description,
                         'amount' => $baseAmount,
@@ -170,7 +183,7 @@ class CreditCardInvoice extends Component
         }
 
         $this->resetForm();
-        $this->showForm = false; 
+        $this->showForm = false;
     }
 
     public function editTransaction($id)
@@ -184,8 +197,8 @@ class CreditCardInvoice extends Component
         $this->amount = $transaction->amount;
         $this->date = $transaction->date;
         $this->categoryId = $transaction->category_id;
-        $this->isInstallment = false; 
-        $this->showForm = true; 
+        $this->isInstallment = false;
+        $this->showForm = true;
     }
 
     public function deleteTransaction($id, $deleteAll = false)
@@ -217,7 +230,7 @@ class CreditCardInvoice extends Component
     private function applyMonthFilter($query)
     {
         if (empty($this->selectedMonths)) {
-            $query->whereRaw('1 = 0'); 
+            $query->whereRaw('1 = 0');
         } else {
             $query->where(function ($q) {
                 foreach ($this->selectedMonths as $period) {
@@ -234,16 +247,16 @@ class CreditCardInvoice extends Component
     {
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
+
         $cards = $user->creditCards()->orderBy('name')->get();
-        $categories = $user->categories()->orderBy('name')->get(); 
-        
+        $categories = $user->categories()->orderBy('name')->get();
+
         $selectedCard = null;
         $transactions = [];
         $totalInvoice = 0;
         $unpaidTotal = 0; // Total que ainda falta pagar
         $availableMonths = [];
-        
+
         $limitPercentage = 0;
         $metaPercentage = 0;
         $dynamicMaxSpend = 0; // A meta que cresce conforme os meses selecionados
@@ -251,7 +264,7 @@ class CreditCardInvoice extends Component
 
         if ($this->selectedCardId) {
             $selectedCard = $user->creditCards()->find($this->selectedCardId);
-            
+
             if ($selectedCard) {
                 $dates = $user->transactions()
                     ->where('credit_card_id', $this->selectedCardId)
@@ -263,13 +276,13 @@ class CreditCardInvoice extends Component
 
                 $current = now()->format('Y-m');
                 if (!in_array($current, $dates)) $dates[] = $current;
-                
+
                 $mesesNomes = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                 foreach ($dates as $d) {
                     [$year, $month] = explode('-', $d);
                     $availableMonths[$d] = $mesesNomes[(int)$month] . '/' . substr($year, -2);
                 }
-                ksort($availableMonths); 
+                ksort($availableMonths);
 
                 $query = $user->transactions()
                     ->with('category')
@@ -277,10 +290,10 @@ class CreditCardInvoice extends Component
                     ->where('type', 'expense');
 
                 $this->applyMonthFilter($query);
-                
+
                 $transactions = $query->orderBy('date', 'asc')->get();
                 $totalInvoice = $transactions->sum('amount');
-                
+
                 // Soma apenas o que está "Pendente" para o botão de pagar
                 $unpaidTotal = $transactions->where('is_paid', false)->sum('amount');
 
@@ -293,7 +306,7 @@ class CreditCardInvoice extends Component
                 if ($selectedCard->max_spend > 0 && $selectedMonthsCount > 0) {
                     // Multiplica a meta pela quantidade de meses selecionados
                     $dynamicMaxSpend = $selectedCard->max_spend * $selectedMonthsCount;
-                    
+
                     // Calcula a porcentagem SEM TRAVAR em 100 (para poder mostrar 150%, 200%)
                     $metaPercentage = ($totalInvoice / $dynamicMaxSpend) * 100;
                 }

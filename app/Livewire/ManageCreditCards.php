@@ -4,20 +4,20 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On; // <-- Importante para ouvir eventos!
 
 class ManageCreditCards extends Component
 {
+    public $showForm = false; // Começa invisível!
+
     public $cardId = null;
     public $name;
     public $closing_day;
     public $due_day;
-    
-    // Novas variáveis
     public $limit;
     public $max_spend;
-    public $color = 'purple'; // Cor padrão
+    public $color = 'purple';
 
-    // Lista de cores disponíveis para o usuário escolher
     public $availableColors = [
         'purple' => 'Roxo (Ex: Nubank)',
         'orange' => 'Laranja (Ex: Inter)',
@@ -27,6 +27,22 @@ class ManageCreditCards extends Component
         'gray' => 'Cinza / Black (Ex: C6, Black)',
         'yellow' => 'Amarelo (Ex: BB, Will)'
     ];
+
+    // Ouve o grito de "Novo Cartão"
+    #[On('trigger-create-card')]
+    public function openCreate()
+    {
+        $this->resetForm();
+        $this->showForm = true;
+    }
+
+    // Ouve o grito de "Editar Cartão"
+    #[On('trigger-edit-card')]
+    public function openEdit($id)
+    {
+        $this->edit($id);
+        $this->showForm = true;
+    }
 
     public function save()
     {
@@ -41,8 +57,6 @@ class ManageCreditCards extends Component
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
-
-        // Se o max_spend vier vazio do formulário, salvamos como null no banco
         $maxSpendValue = $this->max_spend === '' ? null : $this->max_spend;
 
         if ($this->cardId) {
@@ -67,7 +81,8 @@ class ManageCreditCards extends Component
             session()->flash('card_message', 'Cartão adicionado com sucesso!');
         }
 
-        $this->resetForm();
+        $this->showForm = false; // Esconde o formulário
+        $this->dispatch('cards-updated'); // Avisa a outra tela para atualizar as Abas
     }
 
     public function edit($id)
@@ -75,7 +90,7 @@ class ManageCreditCards extends Component
         /** @var \App\Models\User $user */
         $user = Auth::user();
         $card = $user->creditCards()->findOrFail($id);
-        
+
         $this->cardId = $card->id;
         $this->name = $card->name;
         $this->closing_day = $card->closing_day;
@@ -85,12 +100,18 @@ class ManageCreditCards extends Component
         $this->color = $card->color;
     }
 
-    public function delete($id)
+    // Agora deletamos baseado no cartão que está aberto no formulário
+    public function delete()
     {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        $user->creditCards()->findOrFail($id)->delete();
-        session()->flash('card_message', 'Cartão excluído!');
+        if ($this->cardId) {
+            /** @var \App\Models\User $user */
+            $user = Auth::user();
+            $user->creditCards()->findOrFail($this->cardId)->delete();
+            
+            $this->showForm = false;
+            $this->dispatch('cards-updated');
+            session()->flash('card_message', 'Cartão e compras excluídos!');
+        }
     }
 
     public function resetForm()
@@ -99,13 +120,13 @@ class ManageCreditCards extends Component
         $this->color = 'purple';
     }
 
+    public function closeForm()
+    {
+        $this->showForm = false;
+    }
+
     public function render()
     {
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
-        
-        return view('livewire.manage-credit-cards', [
-            'cards' => $user->creditCards()->orderBy('name')->get()
-        ]);
+        return view('livewire.manage-credit-cards');
     }
 }

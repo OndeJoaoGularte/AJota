@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            <span class="text-orange-500">A</span>Gota <span class="text-gray-400 font-normal ml-2">| Meus Cartões</span>
+        <h2 class="font-semibold text-xl text-slate-100 leading-tight">
+            <span class="text-orange-500">A</span>Gota <span class="text-slate-400 font-normal ml-2">| Meus Cartões</span>
         </h2>
     </x-slot>
 
